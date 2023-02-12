@@ -1,0 +1,154 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Candlestick chart
+
+```elixir
+Mix.install([
+  {:explorer, "~> 0.5.0"},
+  {:kino_vega_lite, "~> 0.1.7"}
+])
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+## Section
+
+```elixir
+require Explorer.DataFrame
+
+alias Explorer.DataFrame
+alias Explorer.Series
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Explorer.Series
+```
+
+`RandomWalk.random_walk/2` returns a data frame of randomly generated stock price.
+
+```elixir
+defmodule RandomWalk do
+  def random_walk(date_range, opts \\ []) do
+    tick = Keyword.get(opts, :tick, 1)
+    ticks_per_day = Keyword.get(opts, :ticks_per_day, 1)
+
+    dates =
+      date_range
+      |> Stream.flat_map(&Stream.duplicate(&1, ticks_per_day))
+      |> Enum.to_list()
+      |> Series.from_list()
+
+    prices =
+      Stream.repeatedly(fn -> Enum.random(-tick..tick//tick) end)
+      |> Enum.take(Series.count(dates))
+      |> Series.from_list()
+      |> Series.cumulative_sum()
+
+    DataFrame.new(date: dates, price: prices)
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, RandomWalk, <<70, 79, 82, 49, 0, 0, 11, ...>>, {:random_walk, 2}}
+```
+
+`OHLC.ohlc/3` summarises a given data frame into OHLC data.
+
+```elixir
+defmodule OHLC do
+  def ohlc(df, index_col, value_col) do
+    df
+    |> DataFrame.select([index_col, value_col])
+    |> DataFrame.rename([:index, :value])
+    |> DataFrame.group_by(:index)
+    |> DataFrame.summarise(
+      open: first(value),
+      high: max(value),
+      low: min(value),
+      close: last(value)
+    )
+    |> DataFrame.select([:index, :open, :high, :low, :close])
+    |> DataFrame.rename(index: index_col)
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, OHLC, <<70, 79, 82, 49, 0, 0, 10, ...>>, {:ohlc, 3}}
+```
+
+Create a random OHLC data frame.
+
+```elixir
+df =
+  RandomWalk.random_walk(
+    Date.range(~D[2023-01-01], ~D[2023-02-01]),
+    tick: 2,
+    ticks_per_day: 10
+  )
+
+init_price = 42
+
+df = df |> DataFrame.mutate(price: add(price, ^init_price))
+
+df = df |> OHLC.ohlc(:date, :price)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[32 x 5]
+  date date [2023-01-01, 2023-01-02, 2023-01-03, 2023-01-04, 2023-01-05, ...]
+  open integer [40, 36, 32, 20, 26, ...]
+  high integer [40, 36, 32, 26, 26, ...]
+  low integer [36, 30, 22, 20, 22, ...]
+  close integer [36, 32, 22, 26, 24, ...]
+>
+```
+
+Draw the data frame. Chart spec is adapted from https://vega.github.io/vega-lite/examples/layer_candlestick.html
+
+```elixir
+color_spec = [
+  condition: [
+    test: "datum.open < datum.close",
+    value: "#06982d"
+  ],
+  value: "#ae1325"
+]
+
+VegaLite.new(title: "Stock chart")
+|> VegaLite.data_from_values(df, only: ["date", "open", "high", "low", "close"])
+|> VegaLite.layers([
+  VegaLite.new()
+  |> VegaLite.mark(:rule)
+  |> VegaLite.encode_field(:x, "date", type: :temporal)
+  |> VegaLite.encode_field(:y, "low", type: :quantitative, scale: [zero: false])
+  |> VegaLite.encode_field(:y2, "high", type: :quantitative, scale: [zero: false])
+  |> VegaLite.encode(:color, color_spec),
+  VegaLite.new()
+  |> VegaLite.mark(:bar)
+  |> VegaLite.encode_field(:x, "date", type: :temporal)
+  |> VegaLite.encode_field(:y, "close", type: :quantitative, scale: [zero: false])
+  |> VegaLite.encode_field(:y2, "open", type: :quantitative, scale: [zero: false])
+  |> VegaLite.encode(:color, color_spec)
+])
+```
+
+<!-- livebook:{"output":true} -->
+
+```vega-lite
+{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":[{"close":36,"date":"2023-01-01","high":40,"low":36,"open":40},{"close":32,"date":"2023-01-02","high":36,"low":30,"open":36},{"close":22,"date":"2023-01-03","high":32,"low":22,"open":32},{"close":26,"date":"2023-01-04","high":26,"low":20,"open":20},{"close":24,"date":"2023-01-05","high":26,"low":22,"open":26},{"close":28,"date":"2023-01-06","high":30,"low":24,"open":24},{"close":32,"date":"2023-01-07","high":32,"low":28,"open":30},{"close":22,"date":"2023-01-08","high":30,"low":22,"open":30},{"close":18,"date":"2023-01-09","high":22,"low":18,"open":20},{"close":22,"date":"2023-01-10","high":24,"low":16,"open":16},{"close":20,"date":"2023-01-11","high":20,"low":14,"open":20},{"close":22,"date":"2023-01-12","high":22,"low":18,"open":18},{"close":16,"date":"2023-01-13","high":24,"low":16,"open":20},{"close":24,"date":"2023-01-14","high":24,"low":14,"open":14},{"close":30,"date":"2023-01-15","high":30,"low":18,"open":22},{"close":20,"date":"2023-01-16","high":30,"low":20,"open":30},{"close":18,"date":"2023-01-17","high":20,"low":16,"open":20},{"close":18,"date":"2023-01-18","high":22,"low":16,"open":20},{"close":24,"date":"2023-01-19","high":26,"low":20,"open":20},{"close":20,"date":"2023-01-20","high":28,"low":20,"open":24},{"close":16,"date":"2023-01-21","high":22,"low":16,"open":22},{"close":18,"date":"2023-01-22","high":20,"low":18,"open":18},{"close":20,"date":"2023-01-23","high":22,"low":18,"open":20},{"close":26,"date":"2023-01-24","high":26,"low":18,"open":20},{"close":26,"date":"2023-01-25","high":30,"low":24,"open":24},{"close":28,"date":"2023-01-26","high":32,"low":28,"open":28},{"close":26,"date":"2023-01-27","high":30,"low":24,"open":26},{"close":28,"date":"2023-01-28","high":32,"low":26,"open":26},{"close":24,"date":"2023-01-29","high":26,"low":24,"open":26},{"close":16,"date":"2023-01-30","high":26,"low":14,"open":22},{"close":10,"date":"2023-01-31","high":16,"low":10,"open":16},{"close":2,"date":"2023-02-01","high":10,"low":2,"open":8}]},"layer":[{"encoding":{"color":{"condition":{"test":"datum.open < datum.close","value":"#06982d"},"value":"#ae1325"},"x":{"field":"date","type":"temporal"},"y":{"field":"low","scale":{"zero":false},"type":"quantitative"},"y2":{"field":"high","scale":{"zero":false},"type":"quantitative"}},"mark":"rule"},{"encoding":{"color":{"condition":{"test":"datum.open < datum.close","value":"#06982d"},"value":"#ae1325"},"x":{"field":"date","type":"temporal"},"y":{"field":"close","scale":{"zero":false},"type":"quantitative"},"y2":{"field":"open","scale":{"zero":false},"type":"quantitative"}},"mark":"bar"}],"title":"Stock chart"}
+```
