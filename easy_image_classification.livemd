@@ -1,0 +1,41 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Easy image classification
+
+```elixir
+Mix.install(
+  [
+    # depends on exla
+    {:bumblebee, "~> 0.1.2"},
+    {:exla, "~> 0.4.2"},
+    # Image.Classification depends on bumblebee
+    {:image, "~> 0.24.0"}
+  ],
+  config: [nx: [default_backend: EXLA.Backend]]
+)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+## Section
+
+Use [`Image.Classification.classify/2`](https://hexdocs.pm/image/Image.Classification.html#classify/2) to classify a kitten picture.
+
+```elixir
+{:ok, {_status, _headers, body}} =
+  :httpc.request(:get, {~c"http://placekitten.com/200/300", []}, [], body_format: :binary)
+
+{:ok, image} = Image.from_binary(body)
+
+Image.Classification.classify(image)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{predictions: [%{label: "tabby, tabby cat", score: 0.505153238773346}]}
+```
