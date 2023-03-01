@@ -1,0 +1,42 @@
+# HTTP clients
+
+```elixir
+Mix.install([
+  {:finch, "~> 0.14.0"},
+  {:httpoison, "~> 2.0.0"},
+  {:mint, "~> 1.5.0"},
+  {:tesla, "~> 1.5.1"}
+])
+```
+
+## Finch
+
+```elixir
+defmodule MyFinch do
+end
+
+Finch.start_link(name: MyFinch)
+{:ok, resp} = Finch.build(:get, "https://example.com/") |> Finch.request(MyFinch)
+{resp.status, String.length(resp.body)}
+```
+
+## HTTPoison
+
+```elixir
+HTTPoison.start()
+resp = HTTPoison.get!("https://example.com/")
+{resp.status_code, String.length(resp.body)}
+```
+
+## Tesla
+
+```elixir
+defmodule MyTesla do
+  use Tesla
+
+  adapter(Tesla.Adapter.Mint)
+end
+
+resp = MyTesla.get!("https://example.com/")
+{resp.status, String.length(resp.body)}
+```
