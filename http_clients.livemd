@@ -5,11 +5,14 @@ Mix.install([
   {:finch, "~> 0.14.0"},
   {:httpoison, "~> 2.0.0"},
   {:mint, "~> 1.5.0"},
+  {:req, "~> 0.3.6"},
   {:tesla, "~> 1.5.1"}
 ])
 ```
 
 ## Finch
+
+https://hexdocs.pm/finch/Finch.html
 
 ```elixir
 defmodule MyFinch do
@@ -22,6 +25,8 @@ Finch.start_link(name: MyFinch)
 
 ## HTTPoison
 
+https://hexdocs.pm/httpoison/readme.html
+
 ```elixir
 HTTPoison.start()
 resp = HTTPoison.get!("https://example.com/")
@@ -29,6 +34,8 @@ resp = HTTPoison.get!("https://example.com/")
 ```
 
 ## Tesla
+
+https://hexdocs.pm/tesla/readme.html
 
 ```elixir
 defmodule MyTesla do
@@ -38,5 +45,14 @@ defmodule MyTesla do
 end
 
 resp = MyTesla.get!("https://example.com/")
+{resp.status, String.length(resp.body)}
+```
+
+## Req
+
+https://hexdocs.pm/req/readme.html
+
+```elixir
+resp = Req.get!("https://example.com/")
 {resp.status, String.length(resp.body)}
 ```
